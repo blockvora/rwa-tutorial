@@ -254,7 +254,7 @@ isVerified(wallet) → has identity? → has valid claims? → true/false
 
 ## Reference Repositories
 
-This tutorial is based on two production-grade codebases:
+This tutorial is based on two codebases:
 
 ### 1. **ERC-3643** (T-REX Standard)
 - **Source:** `reference/erc3643/`
