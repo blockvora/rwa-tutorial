@@ -4,6 +4,7 @@ pragma solidity 0.8.25;
 import {Test, console2} from "forge-std/Test.sol";
 import {StockToken} from "../../src/token/StockToken.sol";
 import {IStockToken} from "../../src/token/interfaces/IStockToken.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IdentityRegistry} from "../../src/identity/IdentityRegistry.sol";
 import {MockIdentity} from "../../src/identity/mocks/MockIdentity.sol";
 import {ModularCompliance} from "../../src/compliance/ModularCompliance.sol";
@@ -121,7 +122,7 @@ contract StockTokenTest is Test {
 
     function test_Mint_EmitsTransferEvent() public {
         vm.expectEmit(true, true, false, true);
-        emit IStockToken.Transfer(address(0), investor1, 1000e18);
+        emit IERC20.Transfer(address(0), investor1, 1000e18);
 
         vm.prank(agent);
         token.mint(investor1, 1000e18);
@@ -183,7 +184,7 @@ contract StockTokenTest is Test {
         token.mint(investor1, 1000e18);
 
         vm.expectEmit(true, true, false, true);
-        emit IStockToken.Transfer(investor1, investor2, 400e18);
+        emit IERC20.Transfer(investor1, investor2, 400e18);
 
         vm.prank(investor1);
         token.transfer(investor2, 400e18);
@@ -266,14 +267,18 @@ contract StockTokenTest is Test {
         vm.prank(owner);
         compliance.addModule(address(maxBalanceModule));
 
-        // Mint to investor1
+        // Mint to investor1 (within limit)
         vm.prank(agent);
-        token.mint(investor1, 1_500_000e18);
+        token.mint(investor1, 900_000e18);
 
-        // Try to transfer more than max balance
+        // Mint to investor2 (within limit)
+        vm.prank(agent);
+        token.mint(investor2, 500_000e18);
+
+        // Try to transfer from investor2 to investor1, which would exceed max balance
         vm.expectRevert("StockToken: transfer not compliant");
-        vm.prank(investor1);
-        token.transfer(investor2, 1_100_000e18);
+        vm.prank(investor2);
+        token.transfer(investor1, 200_000e18);
     }
 
     function test_TransferFrom() public {
@@ -494,7 +499,8 @@ contract StockTokenTest is Test {
 
         assertEq(token.balanceOf(investor1), 200e18);
         assertEq(token.balanceOf(investor2), 800e18);
-        assertEq(token.getFrozenTokens(investor1), 0);
+        // Started with 700 frozen, unfroze 500 (800 - 300 free), so 200 remain frozen
+        assertEq(token.getFrozenTokens(investor1), 200e18);
     }
 
     function test_ForcedTransfer_RevertsIfReceiverNotVerified() public {

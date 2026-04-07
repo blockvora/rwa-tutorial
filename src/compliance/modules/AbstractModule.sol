@@ -4,7 +4,6 @@ pragma solidity 0.8.25;
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IModule} from "../interfaces/IModule.sol";
 import {IIdentityRegistry} from "../../identity/interfaces/IIdentityRegistry.sol";
-import {IIdentity} from "../../identity/interfaces/IIdentity.sol";
 
 /**
  * @title AbstractModule

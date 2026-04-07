@@ -67,29 +67,26 @@ contract MaxBalanceModule is AbstractModule {
 
     /**
      * @notice Check if transfer would exceed max balance for receiver
-     * @param from The sender address
      * @param to The receiver address
      * @param amount The transfer amount
-     * @param compliance The compliance contract (not used)
      * @return compliant True if receiver's balance + amount <= maxBalance
      * 
-     * @dev Checks BOTH sender and receiver identities
+     * @dev Only checks receiver's max balance limit
      * @dev Prevents single transfer from exceeding max
-     * @dev Also prevents transferring more than sender has (defensive check)
+     * @dev Sender balance is validated by the token contract
+     * @dev Sender and compliance parameters unused but required by interface
      */
-    function moduleCheck(address from, address to, uint256 amount, address compliance)
+    function moduleCheck(address /* from */, address to, uint256 amount, address /* compliance */)
         external
         view
         override
         returns (bool)
     {
-        // Get identities for both parties
-        address fromIdentity = _getIdentity(from);
+        // Get receiver identity
         address toIdentity = _getIdentity(to);
 
-        // If either identity is not registered, let IdentityRegistry handle it
-        // This module only checks balance limits
-        if (fromIdentity == address(0) || toIdentity == address(0)) {
+        // If receiver identity is not registered, let IdentityRegistry handle it
+        if (toIdentity == address(0)) {
             return true; // Let other checks handle identity verification
         }
 
@@ -100,12 +97,6 @@ contract MaxBalanceModule is AbstractModule {
 
         // Check if receiver would exceed max balance
         if (identityBalance[toIdentity] + amount > maxBalance) {
-            return false;
-        }
-
-        // Check if sender has sufficient balance (defensive check)
-        // Note: Token contract also checks this, but good to verify here
-        if (identityBalance[fromIdentity] < amount) {
             return false;
         }
 
@@ -134,12 +125,18 @@ contract MaxBalanceModule is AbstractModule {
         address fromIdentity = _getIdentity(from);
         address toIdentity = _getIdentity(to);
 
-        // Update balances
-        identityBalance[fromIdentity] -= amount;
-        identityBalance[toIdentity] += amount;
+        // Update sender balance (skip if minting from 0x0)
+        if (from != address(0) && fromIdentity != address(0)) {
+            require(identityBalance[fromIdentity] >= amount, "MaxBalanceModule: insufficient balance");
+            identityBalance[fromIdentity] -= amount;
+        }
 
-        // Safety check: ensure receiver didn't exceed max
-        require(identityBalance[toIdentity] <= maxBalance, "MaxBalanceModule: balance exceeds maximum");
+        // Update receiver balance
+        if (toIdentity != address(0)) {
+            identityBalance[toIdentity] += amount;
+            // Safety check: ensure receiver didn't exceed max
+            require(identityBalance[toIdentity] <= maxBalance, "MaxBalanceModule: balance exceeds maximum");
+        }
     }
 
     /**
@@ -168,7 +165,10 @@ contract MaxBalanceModule is AbstractModule {
     function moduleBurnAction(address from, uint256 amount) external override onlyBoundCompliance {
         address fromIdentity = _getIdentity(from);
 
-        identityBalance[fromIdentity] -= amount;
+        if (fromIdentity != address(0)) {
+            require(identityBalance[fromIdentity] >= amount, "MaxBalanceModule: insufficient balance");
+            identityBalance[fromIdentity] -= amount;
+        }
     }
 
     /*//////////////////////////////////////////////////////////////

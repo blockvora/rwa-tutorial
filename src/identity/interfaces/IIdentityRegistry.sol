@@ -57,23 +57,23 @@ interface IIdentityRegistry {
     /**
      * @notice Register a new identity in the registry
      * @param wallet The investor's wallet address
-     * @param identity The identity contract address
+     * @param identityContract The identity contract address
      * @param country The investor's country code (ISO 3166-1 numeric, e.g., 840 = USA)
      * 
      * @dev Only callable by agents (KYC providers)
      * @dev Reverts if wallet is already registered
      */
-    function registerIdentity(address wallet, IIdentity identity, uint16 country) external;
+    function registerIdentity(address wallet, IIdentity identityContract, uint16 country) external;
 
     /**
      * @notice Update an existing identity (e.g., investor changes KYC provider)
      * @param wallet The investor's wallet address
-     * @param identity The new identity contract address
+     * @param identityContract The new identity contract address
      * 
      * @dev Only callable by agents
      * @dev Reverts if wallet is not registered
      */
-    function updateIdentity(address wallet, IIdentity identity) external;
+    function updateIdentity(address wallet, IIdentity identityContract) external;
 
     /**
      * @notice Update an investor's country code

@@ -79,6 +79,24 @@ interface IStockToken is IERC20 {
      */
     event RedemptionRequested(address indexed investor, uint256 amount);
 
+    /**
+     * @notice Emitted when redemption manager is set
+     * @param redemptionManager The new redemption manager address
+     */
+    event RedemptionManagerSet(address indexed redemptionManager);
+
+    /**
+     * @notice Emitted when attestation oracle is set
+     * @param attestationOracle The new attestation oracle address
+     */
+    event AttestationOracleSet(address indexed attestationOracle);
+
+    /**
+     * @notice Emitted when attestation requirement is changed
+     * @param required Whether attestation is now required
+     */
+    event AttestationRequirementSet(bool required);
+
     /*//////////////////////////////////////////////////////////////
                           TRANSFER FUNCTIONS
     //////////////////////////////////////////////////////////////*/
@@ -310,17 +328,6 @@ interface IStockToken is IERC20 {
      */
     function getFrozenTokens(address wallet) external view returns (uint256);
 
-    /**
-     * @notice Get token name
-     * @return name The token name
-     */
-    function name() external view returns (string memory);
-
-    /**
-     * @notice Get token symbol
-     * @return symbol The token symbol
-     */
-    function symbol() external view returns (string memory);
 
     /**
      * @notice Get token decimals

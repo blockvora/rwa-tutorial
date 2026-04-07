@@ -2,7 +2,6 @@
 pragma solidity 0.8.25;
 
 import {AbstractModule} from "./AbstractModule.sol";
-import {IIdentity} from "../../identity/interfaces/IIdentity.sol";
 
 /**
  * @title AccreditedInvestorModule
@@ -49,15 +48,13 @@ contract AccreditedInvestorModule is AbstractModule {
 
     /**
      * @notice Check if receiver is an accredited investor
-     * @param from The sender address (not checked by this module)
      * @param to The receiver address (must be accredited)
-     * @param amount The transfer amount (not checked by this module)
-     * @param compliance The compliance contract (not used by this module)
      * @return compliant True if receiver is accredited (or verified in Phase 1)
      * 
      * @dev This module only checks the RECEIVER
      * @dev Sender can be anyone (accredited or not)
      * @dev Amount doesn't matter for accreditation
+     * @dev Sender, amount, and compliance parameters unused but required by interface
      * 
      * PHASE 1 BEHAVIOR:
      * - If IdentityRegistry has no claim requirements, this passes for all verified investors
@@ -67,7 +64,7 @@ contract AccreditedInvestorModule is AbstractModule {
      * - Claim must be from trusted issuer
      * - Claim must not be revoked
      */
-    function moduleCheck(address from, address to, uint256 amount, address compliance)
+    function moduleCheck(address /* from */, address to, uint256 /* amount */, address /* compliance */)
         external
         view
         override

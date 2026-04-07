@@ -6,6 +6,7 @@ import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {IStockToken} from "./interfaces/IStockToken.sol";
 import {IIdentityRegistry} from "../identity/interfaces/IIdentityRegistry.sol";
 import {IModularCompliance} from "../compliance/interfaces/IModularCompliance.sol";
+import {IAttestationOracle} from "../oracle/interfaces/IAttestationOracle.sol";
 
 /**
  * @title StockToken
@@ -52,6 +53,15 @@ contract StockToken is IStockToken, ERC20, AccessControl {
 
     /// @notice Compliance contract for transfer rules
     IModularCompliance private _compliance;
+
+    /// @notice Redemption manager for async redemptions (optional)
+    address private _redemptionManager;
+
+    /// @notice Attestation oracle for reserve verification (optional)
+    IAttestationOracle private _attestationOracle;
+
+    /// @notice Require oracle attestation before minting (default: false for tutorial)
+    bool private _requireAttestation;
 
     /// @notice Token pause state
     bool private _paused;
@@ -226,10 +236,45 @@ contract StockToken is IStockToken, ERC20, AccessControl {
      * @param to The receiver address
      * @param amount The amount to mint
      */
-    function mint(address to, uint256 amount) external override onlyAgent {
+    function mint(address to, uint256 amount) public override onlyAgent {
+        _mintTo(to, amount);
+    }
+
+    /**
+     * @dev Internal mint function
+     * 
+     * IMPORTANT: This is where backing verification should happen in production.
+     * 
+     * Production Requirements:
+     * 1. Verify oracle attestation (stocks are held in custody)
+     * 2. Check collateral ratio (e.g., 110% backing)
+     * 3. Verify reserve value >= token value
+     * 4. Rate limiting (daily mint caps)
+     * 5. Multi-sig approval for large mints
+     * 
+     * Tutorial Implementation:
+     * - Optional attestation oracle check (disabled by default)
+     * - Demonstrates integration pattern
+     * - Trusts agent to verify backing off-chain
+     * 
+     * Why Optional?
+     * - Requires Chainlink Functions setup
+     * - Requires real custody integration
+     * - Adds deployment complexity
+     * - Core pattern is demonstrated without it
+     */
+    function _mintTo(address to, uint256 amount) internal {
         require(to != address(0), "StockToken: mint to zero address");
         require(_identityRegistry.isVerified(to), "StockToken: receiver not verified");
         require(_compliance.canTransfer(address(0), to, amount), "StockToken: mint not compliant");
+
+        // Optional: Verify backing via attestation oracle
+        if (_requireAttestation && address(_attestationOracle) != address(0)) {
+            require(
+                _attestationOracle.hasReserves("STOCK", amount),
+                "StockToken: insufficient reserves"
+            );
+        }
 
         _mint(to, amount);
 
@@ -242,7 +287,14 @@ contract StockToken is IStockToken, ERC20, AccessControl {
      * @param from The address to burn from
      * @param amount The amount to burn
      */
-    function burn(address from, uint256 amount) external override onlyAgent {
+    function burn(address from, uint256 amount) public override onlyAgent {
+        _burnFrom(from, amount);
+    }
+
+    /**
+     * @dev Internal burn function
+     */
+    function _burnFrom(address from, uint256 amount) internal {
         require(from != address(0), "StockToken: burn from zero address");
         require(balanceOf(from) >= amount, "StockToken: burn amount exceeds balance");
 
@@ -265,11 +317,11 @@ contract StockToken is IStockToken, ERC20, AccessControl {
      * @param toList Array of receiver addresses
      * @param amounts Array of amounts to mint
      */
-    function batchMint(address[] calldata toList, uint256[] calldata amounts) external override {
+    function batchMint(address[] calldata toList, uint256[] calldata amounts) external override onlyAgent {
         require(toList.length == amounts.length, "StockToken: arrays length mismatch");
 
         for (uint256 i = 0; i < toList.length; i++) {
-            mint(toList[i], amounts[i]);
+            _mintTo(toList[i], amounts[i]);
         }
     }
 
@@ -278,11 +330,11 @@ contract StockToken is IStockToken, ERC20, AccessControl {
      * @param fromList Array of addresses to burn from
      * @param amounts Array of amounts to burn
      */
-    function batchBurn(address[] calldata fromList, uint256[] calldata amounts) external override {
+    function batchBurn(address[] calldata fromList, uint256[] calldata amounts) external override onlyAgent {
         require(fromList.length == amounts.length, "StockToken: arrays length mismatch");
 
         for (uint256 i = 0; i < fromList.length; i++) {
-            burn(fromList[i], amounts[i]);
+            _burnFrom(fromList[i], amounts[i]);
         }
     }
 
@@ -295,7 +347,7 @@ contract StockToken is IStockToken, ERC20, AccessControl {
      * @param wallet The wallet address
      * @param freeze True to freeze, false to unfreeze
      */
-    function setAddressFrozen(address wallet, bool freeze) external override onlyAgent {
+    function setAddressFrozen(address wallet, bool freeze) public override onlyAgent {
         _frozen[wallet] = freeze;
         emit AddressFrozen(wallet, freeze, msg.sender);
     }
@@ -332,7 +384,7 @@ contract StockToken is IStockToken, ERC20, AccessControl {
      * @param wallets Array of wallet addresses
      * @param freeze Array of freeze states
      */
-    function batchSetAddressFrozen(address[] calldata wallets, bool[] calldata freeze) external override {
+    function batchSetAddressFrozen(address[] calldata wallets, bool[] calldata freeze) external override onlyAgent {
         require(wallets.length == freeze.length, "StockToken: arrays length mismatch");
 
         for (uint256 i = 0; i < wallets.length; i++) {
@@ -351,7 +403,14 @@ contract StockToken is IStockToken, ERC20, AccessControl {
      * @param amount The amount to transfer
      * @return success True if transfer succeeded
      */
-    function forcedTransfer(address from, address to, uint256 amount) external override onlyAgent returns (bool) {
+    function forcedTransfer(address from, address to, uint256 amount) public override onlyAgent returns (bool) {
+        return _forcedTransfer(from, to, amount);
+    }
+
+    /**
+     * @dev Internal forced transfer function
+     */
+    function _forcedTransfer(address from, address to, uint256 amount) internal returns (bool) {
         require(balanceOf(from) >= amount, "StockToken: insufficient balance");
 
         // Unfreeze tokens if needed
@@ -384,14 +443,14 @@ contract StockToken is IStockToken, ERC20, AccessControl {
         address[] calldata fromList,
         address[] calldata toList,
         uint256[] calldata amounts
-    ) external override {
+    ) external override onlyAgent {
         require(
             fromList.length == toList.length && toList.length == amounts.length,
             "StockToken: arrays length mismatch"
         );
 
         for (uint256 i = 0; i < fromList.length; i++) {
-            forcedTransfer(fromList[i], toList[i], amounts[i]);
+            _forcedTransfer(fromList[i], toList[i], amounts[i]);
         }
     }
 
@@ -403,25 +462,35 @@ contract StockToken is IStockToken, ERC20, AccessControl {
      * @notice Request redemption of tokens for underlying asset
      * @param amount The amount of tokens to redeem
      * 
-     * @dev Burns tokens and emits event for off-chain processing
-     * @dev In Phase 5, this will integrate with RedemptionManager
+     * @dev If RedemptionManager is set, delegates to it (recommended)
+     * @dev Otherwise, burns tokens and emits event for manual processing
+     * 
+     * IMPORTANT: In production, you MUST use a RedemptionManager to:
+     * - Track redemption requests
+     * - Handle async settlement
+     * - Manage USDC payouts
+     * - Prevent loss of funds
      */
     function requestRedemption(uint256 amount) external override whenNotPaused {
         require(amount > 0, "StockToken: amount must be positive");
         require(balanceOf(msg.sender) >= amount, "StockToken: insufficient balance");
         require(!_frozen[msg.sender], "StockToken: address is frozen");
 
-        // Burn tokens
-        _burn(msg.sender, amount);
-
-        // Notify compliance
-        _compliance.destroyed(msg.sender, amount);
-
-        // Emit event for off-chain processing
-        emit RedemptionRequested(msg.sender, amount);
-
-        // TODO Phase 5: Integrate with RedemptionManager
-        // _redemptionManager.requestRedemption(msg.sender, amount);
+        if (_redemptionManager != address(0)) {
+            // Integrated mode: RedemptionManager handles everything
+            // User will call RedemptionManager.requestRedemption() directly
+            // This function is kept for backwards compatibility
+            revert("StockToken: use RedemptionManager.requestRedemption()");
+        } else {
+            // Fallback mode: Manual processing (NOT RECOMMENDED for production)
+            // Tokens are burned immediately with no redemption tracking
+            // Oracle must monitor events and process manually
+            
+            _burn(msg.sender, amount);
+            _compliance.destroyed(msg.sender, amount);
+            
+            emit RedemptionRequested(msg.sender, amount);
+        }
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -477,6 +546,42 @@ contract StockToken is IStockToken, ERC20, AccessControl {
         emit ComplianceSet(compliance_);
     }
 
+    /**
+     * @notice Set the redemption manager (optional)
+     * @param redemptionManager_ The redemption manager address
+     * 
+     * @dev Set to address(0) to disable integration (fallback to manual mode)
+     * @dev When set, requestRedemption() will revert and direct users to RedemptionManager
+     */
+    function setRedemptionManager(address redemptionManager_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _redemptionManager = redemptionManager_;
+        emit RedemptionManagerSet(redemptionManager_);
+    }
+
+    /**
+     * @notice Set the attestation oracle (optional)
+     * @param attestationOracle_ The attestation oracle address
+     * 
+     * @dev Set to address(0) to disable attestation checks
+     * @dev When enabled, minting will verify reserves via oracle
+     */
+    function setAttestationOracle(address attestationOracle_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _attestationOracle = IAttestationOracle(attestationOracle_);
+        emit AttestationOracleSet(attestationOracle_);
+    }
+
+    /**
+     * @notice Enable or disable attestation requirement
+     * @param required Whether to require attestation for minting
+     * 
+     * @dev Default: false (tutorial mode, trusts agent)
+     * @dev Production: true (requires oracle verification)
+     */
+    function setRequireAttestation(bool required) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _requireAttestation = required;
+        emit AttestationRequirementSet(required);
+    }
+
     /*//////////////////////////////////////////////////////////////
                           VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
@@ -529,5 +634,29 @@ contract StockToken is IStockToken, ERC20, AccessControl {
      */
     function decimals() public view override(ERC20, IStockToken) returns (uint8) {
         return _decimals;
+    }
+
+    /**
+     * @notice Get the redemption manager address
+     * @return redemptionManager The redemption manager (address(0) if not set)
+     */
+    function redemptionManager() external view returns (address) {
+        return _redemptionManager;
+    }
+
+    /**
+     * @notice Get the attestation oracle address
+     * @return attestationOracle The attestation oracle (address(0) if not set)
+     */
+    function attestationOracle() external view returns (IAttestationOracle) {
+        return _attestationOracle;
+    }
+
+    /**
+     * @notice Check if attestation is required for minting
+     * @return required True if attestation is required
+     */
+    function requiresAttestation() external view returns (bool) {
+        return _requireAttestation;
     }
 }

@@ -260,8 +260,14 @@ contract ModularComplianceTest is Test {
     }
 
     function test_CanTransfer_WithMaxBalanceModule() public {
-        vm.prank(owner);
+        vm.startPrank(owner);
+        compliance.bindToken(token);
         compliance.addModule(address(maxBalanceModule));
+        vm.stopPrank();
+
+        // Mint to investor1 first
+        vm.prank(token);
+        compliance.created(investor1, 800_000e18);
 
         // Transfer within limit should pass
         bool canTransfer = compliance.canTransfer(investor1, investor2, 500_000e18);
@@ -274,9 +280,14 @@ contract ModularComplianceTest is Test {
 
     function test_CanTransfer_WithMultipleModules() public {
         vm.startPrank(owner);
+        compliance.bindToken(token);
         compliance.addModule(address(accreditedModule));
         compliance.addModule(address(maxBalanceModule));
         vm.stopPrank();
+
+        // Mint to investor1 first
+        vm.prank(token);
+        compliance.created(investor1, 800_000e18);
 
         // Both checks must pass
         bool canTransfer = compliance.canTransfer(investor1, investor2, 500_000e18);

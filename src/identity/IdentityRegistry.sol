@@ -74,43 +74,43 @@ contract IdentityRegistry is IIdentityRegistry, AccessControl {
     /**
      * @notice Register a new identity in the registry
      * @param wallet The investor's wallet address
-     * @param identity The identity contract address
+     * @param identityContract The identity contract address
      * @param country The investor's country code (e.g., 840 = USA)
      * 
      * @dev Only callable by agents
      * @dev Reverts if wallet is zero address, identity is zero, or wallet already registered
      */
-    function registerIdentity(address wallet, IIdentity identity, uint16 country)
+    function registerIdentity(address wallet, IIdentity identityContract, uint16 country)
         external
         override
         onlyRole(AGENT_ROLE)
     {
         require(wallet != address(0), "IdentityRegistry: invalid wallet address");
-        require(address(identity) != address(0), "IdentityRegistry: invalid identity address");
+        require(address(identityContract) != address(0), "IdentityRegistry: invalid identity address");
         require(address(_identities[wallet]) == address(0), "IdentityRegistry: identity already registered");
 
-        _identities[wallet] = identity;
+        _identities[wallet] = identityContract;
         _investorCountry[wallet] = country;
 
-        emit IdentityRegistered(wallet, identity);
+        emit IdentityRegistered(wallet, identityContract);
     }
 
     /**
      * @notice Update an existing identity (e.g., investor changes KYC provider)
      * @param wallet The investor's wallet address
-     * @param identity The new identity contract address
+     * @param identityContract The new identity contract address
      * 
      * @dev Only callable by agents
      * @dev Reverts if wallet is not registered or new identity is invalid
      */
-    function updateIdentity(address wallet, IIdentity identity) external override onlyRole(AGENT_ROLE) {
-        require(address(identity) != address(0), "IdentityRegistry: invalid identity address");
+    function updateIdentity(address wallet, IIdentity identityContract) external override onlyRole(AGENT_ROLE) {
+        require(address(identityContract) != address(0), "IdentityRegistry: invalid identity address");
         IIdentity oldIdentity = _identities[wallet];
         require(address(oldIdentity) != address(0), "IdentityRegistry: identity not registered");
 
-        _identities[wallet] = identity;
+        _identities[wallet] = identityContract;
 
-        emit IdentityUpdated(wallet, oldIdentity, identity);
+        emit IdentityUpdated(wallet, oldIdentity, identityContract);
     }
 
     /**
@@ -221,7 +221,7 @@ contract IdentityRegistry is IIdentityRegistry, AccessControl {
             bytes32 claimId = keccak256(abi.encode(address(trustedIssuers[i]), claimTopic));
 
             // Query the claim from the identity contract
-            (uint256 foundTopic, uint256 scheme, address issuer, bytes memory signature, bytes memory data,) =
+            (uint256 foundTopic,, /* scheme */ , /* issuer */ bytes memory signature, bytes memory data,) =
                 investorIdentity.getClaim(claimId);
 
             // Check if claim exists and matches the topic

@@ -1,3 +1,13 @@
 [submodule "lib/openzeppelin-contracts"]
 	path = lib/openzeppelin-contracts
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+	branch = v5.0.0
+[submodule "lib/forge-std"]
+	path = lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
+[submodule "reference/erc3643"]
+	path = reference/erc3643
+	url = https://github.com/ERC-3643/ERC-3643
+[submodule "reference/rwa-creator"]
+	path = reference/rwa-creator
+	url = https://github.com/PatrickAlphaC/rwa-creator

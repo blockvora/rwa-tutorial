@@ -48,10 +48,12 @@ contract ComplianceModulesTest is Test {
         vm.prank(owner);
         identityRegistry = new IdentityRegistry();
 
-        // Deploy modules
+        // Deploy modules (deployer becomes owner)
+        vm.startPrank(owner);
         accreditedModule = new AccreditedInvestorModule(address(identityRegistry));
         maxBalanceModule = new MaxBalanceModule(address(identityRegistry), MAX_BALANCE);
         transferLimitModule = new TransferLimitModule(address(identityRegistry), DAILY_LIMIT);
+        vm.stopPrank();
 
         // Register identities
         identity1 = new MockIdentity(investor1);
@@ -197,14 +199,16 @@ contract ComplianceModulesTest is Test {
         vm.prank(compliance);
         maxBalanceModule.bindCompliance(compliance);
 
-        // Mint to investor1
-        vm.prank(compliance);
-        maxBalanceModule.moduleMintAction(investor1, 1_000_000e18);
+        // Mint to investor1 and investor2
+        vm.startPrank(compliance);
+        maxBalanceModule.moduleMintAction(investor1, 500_000e18);
+        maxBalanceModule.moduleMintAction(investor2, 800_000e18);
+        vm.stopPrank();
 
-        // Try to transfer more than max (should revert in action, not check)
+        // Try to transfer amount that would make receiver exceed max (800K + 300K > 1M)
         vm.expectRevert("MaxBalanceModule: balance exceeds maximum");
         vm.prank(compliance);
-        maxBalanceModule.moduleTransferAction(investor1, investor2, 1_000_001e18);
+        maxBalanceModule.moduleTransferAction(investor1, investor2, 300_000e18);
     }
 
     function test_MaxBalanceModule_SetMaxBalance() public {
@@ -316,10 +320,11 @@ contract ComplianceModulesTest is Test {
 
         assertEq(transferLimitModule.getRemainingDailyLimit(investor1), 70_000e18);
 
-        // After exceeding limit, remaining is 0
+        // Transfer more to reach exactly 100K
         vm.prank(compliance);
-        transferLimitModule.moduleTransferAction(investor1, investor2, 80_000e18);
+        transferLimitModule.moduleTransferAction(investor1, investor2, 70_000e18);
 
+        // After reaching limit, remaining is 0
         assertEq(transferLimitModule.getRemainingDailyLimit(investor1), 0);
     }
 

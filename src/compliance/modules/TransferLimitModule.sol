@@ -68,16 +68,15 @@ contract TransferLimitModule is AbstractModule {
     /**
      * @notice Check if transfer would exceed daily limit for sender
      * @param from The sender address
-     * @param to The receiver address (not checked by this module)
      * @param amount The transfer amount
-     * @param compliance The compliance contract (not used)
      * @return compliant True if sender's daily volume + amount <= dailyLimit
      * 
      * @dev Only checks SENDER (not receiver)
      * @dev Uses identity (not wallet) to prevent multi-wallet circumvention
      * @dev Day is calculated as: block.timestamp / 1 days
+     * @dev Receiver and compliance parameters unused but required by interface
      */
-    function moduleCheck(address from, address to, uint256 amount, address compliance)
+    function moduleCheck(address from, address /* to */, uint256 amount, address /* compliance */)
         external
         view
         override
@@ -112,14 +111,14 @@ contract TransferLimitModule is AbstractModule {
     /**
      * @notice Update sender's daily transfer volume
      * @param from The sender address
-     * @param to The receiver address (not used)
      * @param amount The transfer amount
      * 
      * @dev Increments sender's counter for today
      * @dev Counter automatically resets when day changes (new timestamp / 1 days)
      * @dev Safety check ensures limit not exceeded
+     * @dev Receiver parameter unused but required by interface
      */
-    function moduleTransferAction(address from, address to, uint256 amount)
+    function moduleTransferAction(address from, address /* to */, uint256 amount)
         external
         override
         onlyBoundCompliance

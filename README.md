@@ -1,13 +1,16 @@
-# Tokenized Stock Tutorial (ERC-3643 + RWA)
+# Creating a Tokenized RWA with ERC-3643
 
-A developer-grade tutorial for building permissioned security tokens that combine:
+A developer's tutorial for building permissioned securities tokens that combine:
+
 - **ERC-3643 identity and compliance** (from T-REX standard)
 - **RWA lifecycle management** (from rwa-creator: mint → redeem → async settlement)
-- **Oracle integration** (Chainlink Functions for custody verification)
+- **Oracle integrations**
+- **Security practices**
+- **What else you need for production**
 
 ## Architecture Overview
 
-This tutorial implements a **minimal but production-ready** architecture for tokenizing real-world assets (specifically stocks) with regulatory compliance.
+This tutorial implements a **minimal but realistic** architecture for tokenizing real-world assets (specifically stocks) with regulatory compliance.
 
 ### Core Components
 
@@ -28,7 +31,9 @@ StockToken (ERC-3643 Token)
 
 ## Current Implementation Status
 
-### ✅ Phase 1: Identity Registry (COMPLETE)
+**All Tests Passing:** 190/190
+
+### Phase 1: Identity Registry (COMPLETE)
 
 The `IdentityRegistry` contract is fully implemented and tested:
 
@@ -69,9 +74,9 @@ test/unit/IdentityRegistryTest.t.sol
 forge test --match-contract IdentityRegistryTest -vv
 ```
 
-### ✅ Phase 2: Compliance Modules (COMPLETE)
+### Phase 2: Compliance Modules
 
-The modular compliance system is fully implemented and tested:
+The modular compliance system is implemented and tested:
 
 **Features:**
 - Pluggable module architecture
@@ -107,13 +112,13 @@ forge test --match-contract ComplianceModulesTest -vv
 ```
 
 **Documentation:**
-See [COMPLIANCE_ARCHITECTURE.md](./COMPLIANCE_ARCHITECTURE.md) for detailed explanation of:
+See [COMPLIANCE_ARCHITECTURE.md](./COMPLIANCE_ARCHITECTURE.md) for detailed explanation of some design decisions that were made:
 - Why compliance is separate from token
 - Module patterns and examples
 - Data flow and lifecycle
 - Extension points for custom modules
 
-### 🚧 Phase 3: Stock Token (TODO)
+### Phase 3: Stock Token
 
 Implement the main token contract:
 - ERC-3643 Token base
@@ -122,14 +127,46 @@ Implement the main token contract:
 - Agent-controlled minting
 - Integration with OracleManager
 
-### 🚧 Phase 4: Oracle Integration (TODO)
+### Phase 4: Oracle Layer
 
-Implement Chainlink Functions integration:
-- `OracleManager.sol` (custody verification)
+Mock oracle implementation based on rwa-creator patterns.
+
+**Features:**
+- Price oracle (simulates Chainlink Price Feeds)
+- Attestation oracle (simulates Chainlink Functions for reserve verification)
+- Staleness checks and price conversions
+- Multi-asset support
+
+**Files:**
+```
+src/oracle/
+├── interfaces/
+│   ├── IPriceOracle.sol              # Price feed interface
+│   └── IAttestationOracle.sol        # Reserve attestation interface
+├── libraries/
+│   └── OracleLib.sol                 # Staleness checks, conversions
+└── mocks/
+    ├── MockPriceOracle.sol           # Mock Chainlink price feed
+    └── MockAttestationOracle.sol     # Mock Chainlink Functions
+```
+
+**Tests:**
+```
+forge test --match-path test/unit/OracleTest.t.sol
+```
+
+**Documentation:**
+- `ORACLE_DESIGN.md` - What oracles SHOULD and SHOULD NOT do
+- `ORACLE_IMPLEMENTATION.md` - Implementation details and integration examples
+
+### Phase 5: Oracle Integration (TODO)
+
+Integrate oracles into StockToken:
 - Collateralization checks before minting
-- Portfolio balance tracking
+- Reserve verification
+- Price-based redemption
 
-### 🚧 Phase 5: Redemption (TODO)
+### Phase 6: Redemption (TODO)
 
 Implement async redemption:
 - `RedemptionManager.sol`
@@ -140,12 +177,12 @@ Implement async redemption:
 
 ### 1. **Simplified vs. Full ERC-3643**
 
-| Feature | Full ERC-3643 | Our Implementation |
-|---------|---------------|-------------------|
+| Featurs            | Full ERC-3643 | Our Implementation |
+|--------------------|---------------|-------------------|
 | Storage separation | ✅ Separate contract | ❌ Embedded (tutorial) |
-| Batch operations | ✅ Yes | ❌ No (clearer) |
-| Upgradeability | ✅ Proxy pattern | ❌ Direct (simpler) |
-| Claim verification | ✅ Required | 🔶 Optional (extensible) |
+| Batch operations   | ✅ Yes                | ❌ No (clearer) |
+| Upgradeability     | ✅ Proxy pattern     | ❌ Direct (simpler) |
+| Claim verification | ✅ Required   | 🔶 Optional (extensible) |
 
 **Why:** Tutorial focuses on core concepts without overwhelming complexity.
 
@@ -173,33 +210,39 @@ isVerified(wallet) → has identity? → has valid claims? → true/false
 
 ## Tutorial Progression
 
-### Step 1: Identity Basics ✅
+### Step 1: Identity Basics 
 - Deploy `IdentityRegistry`
 - Register mock identities
 - Test verification (simple)
 - **Learning:** Wallet → identity mapping
 
-### Step 2: Compliance Rules ✅
+### Step 2: Compliance Rules 
 - Deploy `ModularCompliance`
 - Create compliance modules
 - Test transfer restrictions
 - **Learning:** Modular rule enforcement
 
-### Step 3: Claims (Next)
+### Step 3: Token Integration 
+- Deploy `StockToken`
+- Connect identity + compliance
+- Test permissioned transfers
+- **Learning:** ERC-3643 token flow
+
+### Step 4: Oracle Layer 
+- Deploy price oracles (TSLA/USD, USDC/USD)
+- Deploy attestation oracle (reserve verification)
+- Test staleness checks and conversions
+- **Learning:** Oracle patterns from rwa-creator
+
+### Step 5: Claims (Future)
 - Deploy `ClaimTopicsRegistry`
 - Deploy `TrustedIssuersRegistry`
 - Add claims to identities
 - Test verification (complex)
 - **Learning:** Claim-based verification
 
-### Step 5: Token Integration
-- Deploy `StockToken`
-- Connect identity + compliance
-- Test permissioned transfers
-- **Learning:** ERC-3643 token flow
-
-### Step 6: Oracle Backing
-- Deploy `OracleManager`
+### Step 6: Oracle Integration (Next)
+- Integrate oracles into StockToken
 - Mock Chainlink Functions
 - Test collateralized minting
 - **Learning:** Off-chain asset verification
@@ -269,11 +312,11 @@ If you get "Source not found" errors, see [TROUBLESHOOTING.md](./TROUBLESHOOTING
 ```
 rwa-tutorial/
 ├── src/
-│   ├── identity/           # ✅ Phase 1 (complete)
-│   ├── compliance/         # ✅ Phase 2 (complete)
-│   ├── token/              # ✅ Phase 3 (complete)
-│   ├── oracle/             # 🚧 Phase 4 (todo)
-│   └── redemption/         # 🚧 Phase 5 (todo)
+│   ├── identity/           # Phase 1 (complete)
+│   ├── compliance/         # Phase 2 (complete)
+│   ├── token/              # Phase 3 (complete)
+│   ├── oracle/             # Phase 4 (todo)
+│   └── redemption/         # Phase 5 (todo)
 ├── test/
 │   └── unit/
 │       ├── IdentityRegistryTest.t.sol      # ✅ Complete
@@ -357,27 +400,16 @@ This is a tutorial repository. Contributions welcome:
 - Regulatory compliance is complex and jurisdiction-specific
 - Consult legal counsel before tokenizing securities
 
-## Next Steps
-
-1. ✅ Complete Phase 1 (Identity Registry)
-2. ✅ Complete Phase 2 (Compliance Modules)
-3. ✅ Complete Phase 3 (Stock Token)
-4. 🚧 Implement Phase 4 (Oracle Integration)
-5. 🚧 Implement Phase 5 (Redemption Manager)
-6. 🚧 Write integration tests
-7. 🚧 Deploy to testnet
-8. 🚧 Create deployment scripts
 
 ## Resources
 
 - [ERC-3643 Standard](https://eips.ethereum.org/EIPS/eip-3643)
-- [T-REX Whitepaper](https://tokeny.com/erc3643-whitepaper/)
-- [ONCHAINID Documentation](https://docs.onchainid.com/)
+- [T-REX Documentation](https://docs.erc3643.org/erc-3643)
 - [Chainlink Functions](https://docs.chain.link/chainlink-functions)
-- [rwa-creator Repository](https://github.com/PatrickAlphaC/rwa-creator)
+- [rwa-creator by Patrick Collins](https://github.com/PatrickAlphaC/rwa-creator)
 
 ---
 
-**Built with:** Solidity 0.8.25, Foundry, OpenZeppelin
+**Built with:** Solidity, Foundry, OpenZeppelin
 
-**Tutorial by:** [Your Name]
+**Tutorial by:** 0xDanki
